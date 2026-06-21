@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>クレーンマスター3D - クレーンゲーム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Mochiy+Pop+One&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #eef2fa;
+    font-family: "Segoe UI", system-ui, sans-serif; -webkit-user-select: none; user-select: none; touch-action: none; }
+  canvas { display: block; }
+
+  #ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+  #ui > * , #ui button { pointer-events: auto; }
+
+  #top { position: absolute; top: 14px; left: 0; right: 0; display: flex;
+    justify-content: space-between; align-items: center; padding: 0 18px; }
+  #title { font-family: "Mochiy Pop One", sans-serif; font-size: 22px; letter-spacing: 1px; color: #ff3d9a;
+    text-shadow: 0 2px 0 #fff, 0 0 10px rgba(255,61,154,.3); }
+  #score { font-family: "Mochiy Pop One", sans-serif; font-size: 20px; color: #36507a;
+    background: rgba(255,255,255,.88); border: 2px solid #ff84b8; border-radius: 14px;
+    padding: 6px 16px; box-shadow: 0 4px 14px rgba(120,140,180,.25); }
+  #score span { color: #ff3d9a; }
+
+  #hint { position: absolute; top: 60px; left: 0; right: 0; text-align: center;
+    color: #5b6b90; font-size: 13px; font-weight: 600; }
+
+  #views { position: absolute; top: 88px; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; }
+  .vbtn { font-size: 13px; font-weight: 700; color: #3a6ea5; background: rgba(255,255,255,.88);
+    border: 2px solid #8fc0ee; border-radius: 10px; padding: 6px 14px; cursor: pointer;
+    transition: transform .05s, background .1s; }
+  .vbtn:active { transform: scale(.92); }
+  .vbtn.active { background: #36c6ff; color: #fff; border-color: #36c6ff; box-shadow: 0 4px 12px rgba(54,198,255,.4); }
+
+  #state { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-family: "Mochiy Pop One", sans-serif; font-size: 40px; color: #ff2e88; opacity: 0; transition: opacity .25s;
+    text-shadow: 0 3px 0 #fff, 0 0 16px rgba(255,46,136,.5); pointer-events: none; }
+  @keyframes pop { 0%{transform:translate(-50%,-50%) scale(.4);} 60%{transform:translate(-50%,-50%) scale(1.18);} 100%{transform:translate(-50%,-50%) scale(1);} }
+
+  #flash { position: fixed; inset: 0; background: #ffffff; opacity: 0; pointer-events: none; z-index: 20; }
+  #audioBtn { align-self: center; width: 48px; height: 42px; border-radius: 12px; cursor: pointer;
+    font-size: 18px; color: #3a6ea5; background: rgba(255,255,255,.88); border: 2px solid #8fc0ee; transition: transform .06s; }
+  #audioBtn:active { transform: scale(.92); }
+
+  #panel { position: absolute; bottom: 24px; left: 0; right: 0; display: flex;
+    align-items: flex-end; justify-content: center; gap: 26px; }
+
+  .actbtn { min-width: 100px; height: 100px; border-radius: 20px; cursor: pointer;
+    font-size: 24px; color: #36507a; background: rgba(255,255,255,.92);
+    border: 3px solid #ffa6cd; line-height: 1.15; box-shadow: 0 6px 16px rgba(120,140,180,.25);
+    transition: transform .05s, background .12s, box-shadow .12s, opacity .12s; }
+  .actbtn:active { transform: scale(.93); }
+  .actbtn.active { background: radial-gradient(circle at 40% 35%, #ffd9ea, #ff7ab4); color: #fff;
+    border-color: #ffffff; box-shadow: 0 6px 22px rgba(255,122,180,.6); }
+  .actbtn.dim { opacity: .4; filter: grayscale(.4); }
+
+  #refill { align-self: center; padding: 10px 16px; border-radius: 12px; cursor: pointer;
+    font-size: 14px; font-weight: 700; color: #3a6ea5; background: rgba(255,255,255,.88);
+    border: 2px solid #8fc0ee; transition: transform .06s; }
+  #refill:active { transform: scale(.93); }
+
+  #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #ff3d9a; font-size: 18px; background: #eef2fa; z-index: 50; }
+
+  .vbtn, .actbtn, #refill, #audioBtn { font-family: "Mochiy Pop One", sans-serif; }
+  #credit { position: absolute; left: 18px; bottom: 26px; font-family: "Mochiy Pop One", sans-serif;
+    font-size: 12px; color: #3a6ea5; background: rgba(255,255,255,.88); border: 2px solid #8fc0ee;
+    border-radius: 10px; padding: 8px 12px; line-height: 1.7; }
+  #credit b { color: #ff3d9a; }
+</style>
+</head>
+<body>
+<div id="loading">読み込み中… 🕹️</div>
+<div id="flash"></div>
+
+<div id="ui">
+  <div id="top">
+    <div id="title">🕹️ クレーンマスター3D</div>
+    <div id="score">🎁 ×<span id="scoreVal">0</span></div>
+  </div>
+  <div id="hint">① 「右」で位置決め → ② 「奥」で位置決め → 自動でキャッチ！</div>
+  <div id="views">
+    <button class="vbtn active" data-view="iso">斜め</button>
+    <button class="vbtn" data-view="front">正面</button>
+    <button class="vbtn" data-view="side">横</button>
+    <button class="vbtn" data-view="top">真上</button>
+  </div>
+  <div id="state"></div>
+  <div id="credit">CREDIT <b>∞</b><br>1 PLAY ¥100</div>
+  <div id="panel">
+    <button class="actbtn" id="btnRight">▶<br>右</button>
+    <button class="actbtn" id="btnBack">▲<br>奥</button>
+    <button id="refill">REFILL</button>
+    <button id="audioBtn" aria-label="サウンド切替">🔊</button>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+    "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as CANNON from 'cannon-es';
+
+// ===== 定数 =====
+const TOP_Y = 7.5;        // アーム待機高さ
+const BOTTOM_Y = 1.9;     // アーム最下降の高さ（爪の先が床付近に届く）
+const BOUND = 4.2;        // アームの可動範囲(x,z)
+const HOME = { x: -3.75, z: 3.75 };  // 落とし口（ゲットゾーン＝左手前）の真上＝アーム開始位置
+const OPEN = -0.5, CLOSED = 0.06;     // 爪の開閉角（開=外へ広がる / 閉=◇を形成）
+const GRIP = -0.34;                   // 景品を掴む時の角度（先端が景品表面で止まり貫通しない）
+const GRAB_RADIUS = 1.25; // この水平距離内の景品をつかめる
+const PRIZE_R = 0.6;
+const HOLE = { x0: -5, x1: -2.5, z0: 2.5, z1: 5 }; // ゲットゾーン（穴）の範囲＝左手前
+const SLIP_K = 0.7; // 運搬中に景品がすべり落ちる起こりやすさ（大きいほど難しい）
+const WAIT_TIME = 0.7; // 2つ目のボタンを離してから降下を始めるまでの間（秒）
+const MAXV = 10;       // 景品の最大速度（速すぎると壁をすり抜けるため制限）
+
+// 衝突グループ
+const G_WORLD = 1, G_PRIZE = 2, G_FINGER = 4;
+
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const approach = (cur,target,step) => cur < target ? Math.min(cur+step,target) : Math.max(cur-step,target);
+
+// ===== サウンド（Web Audio API でその場で合成・著作権フリー） =====
+let audioCtx = null, masterGain, bgmGain, sfxGain, muted = false, bgmStarted = false;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain(); masterGain.gain.value = muted ? 0 : 0.9; masterGain.connect(audioCtx.destination);
+    bgmGain = audioCtx.createGain(); bgmGain.gain.value = 0.16; bgmGain.connect(masterGain);
+    sfxGain = audioCtx.createGain(); sfxGain.gain.value = 0.5; sfxGain.connect(masterGain);
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!bgmStarted) { bgmStarted = true; startBGM(); }
+}
+
+// 効果音用：1音を鳴らす（周波数スライド対応）
+function blip(freq, dur, type, t0, vol, slideTo) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime + (t0 || 0);
+  const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.setValueAtTime(freq, now);
+  if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, now + dur);
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(vol || 0.4, now + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  osc.connect(g); g.connect(sfxGain);
+  osc.start(now); osc.stop(now + dur + 0.03);
+}
+const sndClick = () => blip(660, 0.05, 'square', 0, 0.3);
+const sndMove  = () => blip(880, 0.03, 'square', 0, 0.12);
+const sndDrop  = () => blip(420, 0.45, 'sawtooth', 0, 0.25, 150);
+const sndGrab  = () => { blip(170, 0.1, 'square', 0, 0.5); blip(120, 0.12, 'square', 0.08, 0.45); };
+const sndLift  = () => blip(180, 0.4, 'sawtooth', 0, 0.22, 360);
+const sndSlip  = () => { blip(520, 0.18, 'sine', 0, 0.4, 320); blip(300, 0.3, 'sine', 0.16, 0.4, 110); };
+function sndWin() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => blip(f, 0.18, 'square', i * 0.09, 0.45));
+  blip(1318.5, 0.32, 'square', 0.36, 0.4);
+}
+
+// BGM：オリジナルのチップチューン風ループ
+const _N = { C3:130.81, F3:174.61, G3:196.0,
+  C5:523.25, D5:587.33, E5:659.25, F5:698.46, G5:783.99, A5:880.0 };
+const bgmMel  = [_N.C5,_N.E5,_N.G5,_N.E5, _N.F5,_N.A5,_N.G5,_N.E5, _N.D5,_N.F5,_N.A5,_N.F5, _N.E5,_N.G5,_N.C5,0];
+const bgmBass = [_N.C3,0,_N.C3,0, _N.F3,0,_N.F3,0, _N.G3,0,_N.G3,0, _N.C3,0,_N.C3,0];
+let bgmStep = 0, bgmNext = 0;
+const STEP = 0.22;
+function bgmNote(freq, t, vol, type, dur) {
+  if (!freq) return;
+  const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g); g.connect(bgmGain);
+  osc.start(t); osc.stop(t + dur + 0.02);
+}
+function startBGM() {
+  bgmStep = 0; bgmNext = audioCtx.currentTime + 0.15;
+  const sched = () => {
+    while (bgmNext < audioCtx.currentTime + 0.3) {
+      bgmNote(bgmMel[bgmStep],  bgmNext, 0.18, 'square',   STEP * 0.9);
+      bgmNote(bgmBass[bgmStep], bgmNext, 0.22, 'triangle', STEP * 1.6);
+      bgmNext += STEP;
+      bgmStep = (bgmStep + 1) % bgmMel.length;
+    }
+    setTimeout(sched, 60);
+  };
+  sched();
+}
+function toggleMute() {
+  muted = !muted;
+  if (masterGain) masterGain.gain.value = muted ? 0 : 0.9;
+  return muted;
+}
+
+// ===== レンダラ / シーン / カメラ =====
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xeef2fa);
+scene.fog = new THREE.Fog(0xeef2fa, 40, 95);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(4, 10.5, 15);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 2.8, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 11;
+controls.maxDistance = 24;
+controls.minPolarAngle = 0.08;
+controls.maxPolarAngle = 1.48;
+controls.update();
+
+// ===== ライト =====
+scene.add(new THREE.HemisphereLight(0xffffff, 0xdfe4f0, 0.9));
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+dir.position.set(7, 15, 9);
+dir.castShadow = true;
+dir.shadow.mapSize.set(1024, 1024);
+const sc = dir.shadow.camera;
+sc.left = -10; sc.right = 10; sc.top = 10; sc.bottom = -10; sc.near = 1; sc.far = 45;
+scene.add(dir);
+const pl = new THREE.PointLight(0x88d4ff, 0.3, 40);
+pl.position.set(0, 8, 2);
+scene.add(pl);
+const pl2 = new THREE.PointLight(0xff9ec2, 0.28, 40);
+pl2.position.set(-4, 6, -4);
+scene.add(pl2);
+
+// ===== 物理ワールド =====
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -16, 0) });
+world.broadphase = new CANNON.SAPBroadphase(world);
+world.solver.iterations = 20;
+world.allowSleep = false;
+world.defaultContactMaterial.friction = 0.4;
+
+const matGround = new CANNON.Material('ground');
+const matPrize  = new CANNON.Material('prize');
+const matClaw   = new CANNON.Material('claw');
+world.addContactMaterial(new CANNON.ContactMaterial(matGround, matPrize, { friction: 0.5, restitution: 0.05 }));
+world.addContactMaterial(new CANNON.ContactMaterial(matPrize,  matPrize, { friction: 0.4, restitution: 0.05 }));
+world.addContactMaterial(new CANNON.ContactMaterial(matClaw,   matPrize, { friction: 0.95, restitution: 0.0 }));
+
+// ===== マテリアル(見た目) =====
+const metalMat = new THREE.MeshStandardMaterial({ color: 0xe6e9f2, metalness: 0.6, roughness: 0.4 });
+const frameMat = new THREE.MeshStandardMaterial({ color: 0xf4f5fa, metalness: 0.3, roughness: 0.5 });
+const glassMat = new THREE.MeshStandardMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.08,
+  metalness: 0.1, roughness: 0.05, side: THREE.DoubleSide });
+const floorMat = new THREE.MeshStandardMaterial({ color: 0xeaedf5, roughness: 0.85, metalness: 0.05 });
+const darkMat  = new THREE.MeshStandardMaterial({ color: 0x3a3f5e, roughness: 1 });
+
+// 箱(見た目 + 任意で物理) を作るヘルパ
+function box(cx, cy, cz, hx, hy, hz, mat, physics, recv = true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(hx*2, hy*2, hz*2), mat);
+  m.position.set(cx, cy, cz);
+  m.receiveShadow = recv;
+  scene.add(m);
+  if (physics) {
+    const b = new CANNON.Body({ mass: 0, material: matGround, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)) });
+    b.position.set(cx, cy, cz);
+    b.collisionFilterGroup = G_WORLD;
+    b.collisionFilterMask  = G_PRIZE;
+    world.addBody(b);
+  }
+  return m;
+}
+
+// ===== キャビネット =====
+// 床（落とし口の角を空けて2分割）: 穴 = x[-5,-2.5], z[2.5,5]（左手前）
+box(0,   -0.25, -1.25, 5,    0.25, 3.75, floorMat, true);  // z[-5,2.5] 全幅
+box(1.25,-0.25,  3.75, 3.75, 0.25, 1.25, floorMat, true);  // z[2.5,5] の x[-2.5,5]
+// 落とし口の縁を光らせるリング
+const holeRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.25, 32),
+  new THREE.MeshBasicMaterial({ color: 0xffd23f, side: THREE.DoubleSide, transparent: true, opacity: 0.6 }));
+holeRing.rotation.x = -Math.PI/2; holeRing.position.set(-3.75, 0.03, 3.75);
+scene.add(holeRing);
+
+// ゲットゾーンの四角い枠（縁）— 内側2辺は物理ありで景品の転がり込みを防ぐ
+const zoneMat = new THREE.MeshStandardMaterial({ color: 0x36c6ff, emissive: 0x36c6ff, emissiveIntensity: 0.35, roughness: 0.4, metalness: 0.1 });
+const RW = 0.22, RH = 0.45; // 枠の厚み・高さ(half)
+box(-2.5,  RH, 3.75, RW, RH, 1.25 + RW, zoneMat, true,  false); // 内側 x=-2.5 の辺（物理）
+box(-3.75, RH, 2.5,  1.25 + RW, RH, RW, zoneMat, true,  false); // 内側 z=2.5 の辺（物理）
+box(-5,    RH, 3.75, RW, RH, 1.25 + RW, zoneMat, false, false); // 外側 x=-5 の辺（飾り）
+box(-3.75, RH, 5,    1.25 + RW, RH, RW, zoneMat, false, false); // 外側 z=5 の辺（飾り）
+
+// ガラス壁（見た目+物理）— 厚めにして景品のすり抜けを防止（内面は±5）
+box( 5.3, 4.5, 0, 0.3, 4.5, 5.3, glassMat, false, false); // +x（見た目のみ）
+box(-5.3, 4.5, 0, 0.3, 4.5, 5.3, glassMat, false, false); // -x
+box(0, 4.5,  5.3, 5.3, 4.5, 0.3, glassMat, false, false);  // +z (手前)
+box(0, 4.5, -5.3, 5.3, 4.5, 0.3, glassMat, false, false);  // -z (奥)
+// 物理用の分厚い見えない壁（内面±5）— すり抜けを完全に防ぐ
+function physWall(cx, cy, cz, hx, hy, hz) {
+  const b = new CANNON.Body({ mass: 0, material: matGround, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)) });
+  b.position.set(cx, cy, cz);
+  b.collisionFilterGroup = G_WORLD; b.collisionFilterMask = G_PRIZE;
+  world.addBody(b);
+}
+physWall( 6.0, 5.0, 0, 1.0, 5.0, 6.0); // +x
+physWall(-6.0, 5.0, 0, 1.0, 5.0, 6.0); // -x
+physWall(0, 5.0,  6.0, 6.0, 5.0, 1.0); // +z
+physWall(0, 5.0, -6.0, 6.0, 5.0, 1.0); // -z
+
+// 落下した景品の受け皿（保険）
+box(-3.75, -7, 3.75, 1.6, 0.3, 1.6, darkMat, true);
+
+// フレーム（飾り）
+for (const sx of [-5.4, 5.4]) for (const sz of [-5.4, 5.4])
+  box(sx, 4.5, sz, 0.28, 4.6, 0.28, frameMat, false); // 四隅の柱（景品エリア外）
+box(0, 9, 5, 5.3, 0.25, 0.25, frameMat, false);
+box(0, 9, -5, 5.3, 0.25, 0.25, frameMat, false);
+box(5, 9, 0, 0.25, 0.25, 5.3, frameMat, false);
+box(-5, 9, 0, 0.25, 0.25, 5.3, frameMat, false);
+// 上部レール
+box(0, 8.6, 5, 5, 0.18, 0.18, metalMat, false);
+box(0, 8.6, -5, 5, 0.18, 0.18, metalMat, false);
+
+// ===== ゲームセンター演出 =====
+const GROUND_Y = -3.4;
+const neonMats = []; // 明滅させるネオン素材
+
+function neonMat(hex) {
+  const mat = new THREE.MeshBasicMaterial({ color: hex });
+  neonMats.push({ mat, base: new THREE.Color(hex), ph: neonMats.length * 0.6 });
+  return mat;
+}
+// 文字入りの発光看板テクスチャ
+function makeSignTexture(text, bg, fg, sub) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = bg; x.fillRect(0, 0, c.width, c.height);
+  x.strokeStyle = fg; x.lineWidth = 14; x.strokeRect(12, 12, c.width - 24, c.height - 24);
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = fg; x.shadowColor = fg; x.shadowBlur = 30;
+  x.font = 'bold 132px "DotGothic16", sans-serif';
+  x.fillText(text, c.width / 2, c.height / 2 - (sub ? 22 : 0));
+  if (sub) { x.font = 'bold 54px sans-serif'; x.fillText(sub, c.width / 2, c.height / 2 + 80); }
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4;
+  return t;
+}
+// アーケードの明るいタイル床
+function makeCarpetTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#eceff6'; x.fillRect(0, 0, 256, 256);
+  // パステルの市松ワンポイント
+  x.fillStyle = 'rgba(255,158,194,0.18)'; x.fillRect(0, 0, 128, 128);
+  x.fillStyle = 'rgba(120,200,255,0.18)'; x.fillRect(128, 128, 128, 128);
+  // タイルの目地
+  x.strokeStyle = '#d3d9e8'; x.lineWidth = 4;
+  x.strokeRect(0, 0, 256, 256);
+  x.beginPath(); x.moveTo(128, 0); x.lineTo(128, 256); x.moveTo(0, 128); x.lineTo(256, 128); x.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(30, 30);
+  return t;
+}
+
+// 機体の土台（筐体）— 白い筐体
+box(0, GROUND_Y / 2, 0, 5.6, Math.abs(GROUND_Y) / 2, 5.6,
+  new THREE.MeshStandardMaterial({ color: 0xf6f6fa, roughness: 0.55, metalness: 0.1 }), false);
+// 土台前面のカラー縁取り
+box(0, -0.15, 5.62, 5.5, 0.1, 0.05, neonMat(0xff5db1), false, false);
+box(0, GROUND_Y + 0.2, 5.62, 5.5, 0.1, 0.05, neonMat(0x36c6ff), false, false);
+// 前面パネル：PRIZE OUT 取出口 ×2 ＋ 中央コイン投入 ＋ 操作ボタン
+function makePrizeOutTexture() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 320;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 320);
+  g.addColorStop(0, '#ff8ad8'); g.addColorStop(1, '#6f6bff');
+  x.fillStyle = g; x.fillRect(0, 0, 512, 320);
+  x.fillStyle = 'rgba(18,14,40,0.5)'; x.fillRect(60, 34, 392, 150); // 取出口の開口
+  x.fillStyle = 'rgba(255,255,255,0.96)';
+  x.font = 'bold 58px "Mochiy Pop One", sans-serif';
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('PRIZE OUT', 256, 258);
+  return new THREE.CanvasTexture(c);
+}
+const prizeWindows = [];
+const prizeOutTex = makePrizeOutTexture();
+for (const px of [-3.1, 3.1]) {
+  const w = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 1.7),
+    new THREE.MeshBasicMaterial({ map: prizeOutTex }));
+  w.position.set(px, -1.7, 5.63); scene.add(w); prizeWindows.push(w);
+}
+const coinSign = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.0),
+  new THREE.MeshBasicMaterial({ map: makeSignTexture('¥100', '#fff7e6', '#e8462e', '1 PLAY') }));
+coinSign.position.set(0, -1.5, 5.64);
+scene.add(coinSign);
+// 操作ボタン（飾り・2ステーション）
+box(0, -0.35, 5.62, 4.8, 0.28, 0.05, new THREE.MeshStandardMaterial({ color: 0xdfe3ec, roughness: 0.6 }), false);
+for (const cb of [[-2.0, 0xff5d5d], [-1.4, 0x46d36a], [1.4, 0xff5d5d], [2.0, 0x46d36a]]) {
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 18),
+    new THREE.MeshStandardMaterial({ color: cb[1], roughness: 0.35, emissive: cb[1], emissiveIntensity: 0.3 }));
+  b.rotation.x = Math.PI / 2; b.position.set(cb[0], -0.35, 5.66); scene.add(b);
+}
+
+// 上部マーキー看板
+const marquee = new THREE.Mesh(new THREE.PlaneGeometry(10.5, 2.6),
+  new THREE.MeshBasicMaterial({ map: makeSignTexture('クレーンマスター', '#ffffff', '#ff2e88', 'PRIZE GAME') }));
+marquee.position.set(0, 10.9, 4.9); marquee.rotation.x = -0.12;
+scene.add(marquee);
+box(0, 12.25, 4.85, 5.35, 0.12, 0.08, neonMat(0x36c6ff), false, false); // 上枠
+box(0, 9.55, 4.85, 5.35, 0.12, 0.08, neonMat(0xffce3a), false, false);  // 下枠
+for (const sx of [-5.3, 5.3]) box(sx, 10.9, 4.85, 0.12, 1.45, 0.08, neonMat(0xff5db1), false, false);
+
+// 機体のレインボーLEDエッジ（モダンUFOキャッチャー風）
+const rgbLeds = [];
+function rgbLed(cx, cy, cz, hx, hy, hz, hue) {
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  rgbLeds.push({ mat, hue });
+  const m = new THREE.Mesh(new THREE.BoxGeometry(hx * 2, hy * 2, hz * 2), mat);
+  m.position.set(cx, cy, cz); scene.add(m);
+}
+// 4本の縦エッジ
+const VN = 9;
+for (const sx of [-5.14, 5.14]) for (const sz of [-5.14, 5.14])
+  for (let i = 0; i < VN; i++) {
+    const y = 0.4 + (i + 0.5) * (8.6 / VN);
+    rgbLed(sx, y, sz, 0.075, (8.6 / VN) / 2 * 0.9, 0.075, i / VN);
+  }
+// 上枠（4辺）
+const TN = 11;
+for (let i = 0; i < TN; i++) {
+  const t = (i + 0.5) / TN, p = -5.14 + t * 10.28, hl = (10.28 / TN) / 2 * 0.9;
+  rgbLed(p, 9.15, 5.14, hl, 0.075, 0.075, t);
+  rgbLed(p, 9.15, -5.14, hl, 0.075, 0.075, t + 0.5);
+  rgbLed(5.14, 9.15, p, 0.075, 0.075, hl, t + 0.25);
+  rgbLed(-5.14, 9.15, p, 0.075, 0.075, hl, t + 0.75);
+}
+
+// フォント読込後に看板を描き直す
+function refreshSigns() {
+  marquee.material.map = makeSignTexture('クレーンマスター', '#ffffff', '#ff2e88', 'PRIZE GAME');
+  coinSign.material.map = makeSignTexture('¥100', '#fff7e6', '#e8462e', '1 PLAY');
+  const t = makePrizeOutTexture();
+  for (const w of prizeWindows) { w.material.map = t; w.material.needsUpdate = true; }
+  marquee.material.needsUpdate = coinSign.material.needsUpdate = true;
+}
+if (document.fonts && document.fonts.load) {
+  Promise.all([document.fonts.load('132px "DotGothic16"'), document.fonts.load('54px "DotGothic16"')])
+    .then(refreshSigns).catch(() => {});
+}
+
+// アーケードの床
+const arcadeFloor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140),
+  new THREE.MeshStandardMaterial({ map: makeCarpetTexture(), roughness: 0.95 }));
+arcadeFloor.rotation.x = -Math.PI / 2; arcadeFloor.position.y = GROUND_Y - 0.02;
+arcadeFloor.receiveShadow = true;
+scene.add(arcadeFloor);
+
+// 背景に並ぶクレーン機（ゲーセンの雰囲気）
+function makeBgMachine(x, z, ry, col) {
+  const g = new THREE.Group();
+  g.position.set(x, GROUND_Y, z); g.rotation.y = ry;
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3, 5.2, 3),
+    new THREE.MeshStandardMaterial({ color: 0xf2f3f8, roughness: 0.6, metalness: 0.1 }));
+  body.position.y = 2.6; g.add(body);
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.6, 2.6),
+    new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.22 }));
+  glass.position.y = 2.5; g.add(glass);
+  for (const fz of [1.45, -1.45]) {
+    const mq = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.9, 0.18), neonMat(col));
+    mq.position.set(0, 5.55, fz); g.add(mq);
+  }
+  scene.add(g);
+}
+const bgCols = [0xff2ec4, 0x4ff0ff, 0xffd23f, 0x7a2eff, 0x46ff9c, 0xff7a3f];
+let _bi = 0;
+for (let i = 0; i < 7; i++) makeBgMachine(-18 + i * 6, -16, 0, bgCols[_bi++ % bgCols.length]);
+for (let i = 0; i < 7; i++) makeBgMachine(-18 + i * 6, -23, 0, bgCols[_bi++ % bgCols.length]);
+for (let i = 0; i < 4; i++) makeBgMachine(-15, -2 + i * 5, Math.PI / 2, bgCols[_bi++ % bgCols.length]);
+for (let i = 0; i < 4; i++) makeBgMachine(15, -2 + i * 5, -Math.PI / 2, bgCols[_bi++ % bgCols.length]);
+
+// 動くブリッジ + ケーブル
+const bridge = box(0, 8.6, 0, 0.2, 0.2, 5, metalMat, false);
+const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1, 8), metalMat);
+scene.add(cable);
+
+// ===== クレーン(爪) — 2本爪のダイヤ型（モダンUFOキャッチャー風） =====
+const clawGroup = new THREE.Group();
+scene.add(clawGroup);
+// ヘッド（モーターユニット）
+const head = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.5, 0.78),
+  new THREE.MeshStandardMaterial({ color: 0xf4f6fb, metalness: 0.5, roughness: 0.4 }));
+head.position.y = 0.18; head.castShadow = true; clawGroup.add(head);
+// ヘッド前面のカラーアクセント
+const headDot = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.18, 0.04),
+  new THREE.MeshStandardMaterial({ color: 0x36c6ff, emissive: 0x36c6ff, emissiveIntensity: 0.45, roughness: 0.4 }));
+headDot.position.set(0, 0.18, 0.4); clawGroup.add(headDot);
+// 接続ネック
+const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.35, 12), metalMat);
+neck.position.y = 0.5; clawGroup.add(neck);
+
+const fingerMeshes = [], fingerPivots = [];
+const armMat = new THREE.MeshStandardMaterial({ color: 0xeef1f8, metalness: 0.85, roughness: 0.25 });
+for (let i = 0; i < 3; i++) {
+  const arm = new THREE.Group();
+  arm.rotation.y = i * Math.PI * 2 / 3;   // 120°ずつの3本爪
+  const pivot = new THREE.Group();
+  pivot.position.set(0, -0.05, 0);
+  // 上ブレード（外へ張り出す）
+  const up = new THREE.Group(); up.rotation.x = -0.5;
+  const upMesh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.15, 0.3), armMat);
+  upMesh.position.set(0, -0.575, 0); upMesh.castShadow = true; up.add(upMesh);
+  pivot.add(up);
+  // 下ブレード（中心の先端へ戻る）→ 3本で中心に集まる
+  const low = new THREE.Group();
+  low.position.set(0, -1.15 * Math.cos(0.5), 1.15 * Math.sin(0.5)); // 上ブレード下端＝肩
+  low.rotation.x = 0.55;
+  const lowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.13, 1.05, 0.28), armMat);
+  lowMesh.position.set(0, -0.525, 0); lowMesh.castShadow = true; low.add(lowMesh);
+  pivot.add(low);
+  arm.add(pivot);
+  clawGroup.add(arm);
+  fingerPivots.push(pivot);
+  fingerMeshes.push(lowMesh); // 物理は下ブレードで近似
+}
+
+// クレーンの物理ボディ（つかむ支点 + 爪3本：キネマティック）
+const clawBody = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC,
+  material: matClaw, shape: new CANNON.Sphere(0.5) });
+clawBody.collisionResponse = false; clawBody.collisionFilterMask = 0;
+world.addBody(clawBody);
+
+const fingerBodies = [];
+for (let i = 0; i < 3; i++) {
+  const b = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: matClaw,
+    shape: new CANNON.Box(new CANNON.Vec3(0.065, 0.525, 0.14)) });
+  b.collisionFilterGroup = G_FINGER;
+  b.collisionFilterMask  = G_PRIZE;
+  world.addBody(b);
+  fingerBodies.push({ body: b, prev: new THREE.Vector3() });
+}
+
+
+// ===== 景品（モンスターぬいぐるみ） =====
+// 実在キャラを使わないオリジナルの「ポケットモンスター風」ぬいぐるみを手続き生成
+const plushTypes = [
+  { body: 0xffd23f, belly: 0xfff3c4, ear: 'pointy', accent: 0xff8a3f }, // きいろ
+  { body: 0xff6f91, belly: 0xffd6e0, ear: 'round',  accent: 0xd23f6b }, // ピンク
+  { body: 0x5fc9ff, belly: 0xd6f2ff, ear: 'round',  accent: 0x2f8fd2 }, // みず
+  { body: 0x8a7dff, belly: 0xe0dbff, ear: 'pointy', accent: 0x5a4fd2 }, // むらさき
+  { body: 0x6cf06c, belly: 0xd9ffd9, ear: 'none',   accent: 0x3aad3a }, // くさ
+  { body: 0xff8a4d, belly: 0xffe0c4, ear: 'round',  accent: 0xd25a2f }, // ほのお
+  { body: 0xff5d5d, belly: 0xffd6d6, ear: 'pointy', accent: 0xc23f3f }, // あか
+  { body: 0xeef1fb, belly: 0xffffff, ear: 'round',  accent: 0x9fb0e0 }, // しろ
+];
+
+function makePlushie(t) {
+  const g = new THREE.Group();
+  const bodyMat  = new THREE.MeshStandardMaterial({ color: t.body,  roughness: 0.95, metalness: 0 });
+  const bellyMat = new THREE.MeshStandardMaterial({ color: t.belly, roughness: 0.95, metalness: 0 });
+  const accMat   = new THREE.MeshStandardMaterial({ color: t.accent, roughness: 0.9, metalness: 0 });
+  const blackMat = new THREE.MeshStandardMaterial({ color: 0x222233, roughness: 0.5 });
+  const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
+  const pinkMat  = new THREE.MeshStandardMaterial({ color: 0xff9bb0, roughness: 0.9 });
+
+  const add = (geo, mat, x, y, z, sx, sy, sz, rz) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    if (sx !== undefined) m.scale.set(sx, sy, sz);
+    if (rz) m.rotation.z = rz;
+    g.add(m); return m;
+  };
+
+  add(new THREE.SphereGeometry(0.55, 20, 16), bodyMat, 0, 0, 0, 1, 0.95, 0.9);       // 胴体
+  add(new THREE.SphereGeometry(0.4, 16, 12), bellyMat, 0, -0.05, 0.4, 0.8, 0.95, 0.5); // おなか
+
+  if (t.ear === 'round') {
+    for (const s of [-1, 1]) {
+      add(new THREE.SphereGeometry(0.2, 12, 10), bodyMat, 0.32 * s, 0.54, 0);
+      add(new THREE.SphereGeometry(0.11, 10, 8), accMat, 0.32 * s, 0.56, 0.08);
+    }
+  } else if (t.ear === 'pointy') {
+    for (const s of [-1, 1]) {
+      add(new THREE.ConeGeometry(0.16, 0.5, 12), bodyMat, 0.28 * s, 0.6, 0, 1, 1, 1, -0.25 * s);
+      add(new THREE.ConeGeometry(0.09, 0.18, 12), accMat, 0.31 * s, 0.8, 0, 1, 1, 1, -0.25 * s);
+    }
+  }
+
+  for (const s of [-1, 1]) {                                   // 目
+    add(new THREE.SphereGeometry(0.1, 12, 10), whiteMat, 0.18 * s, 0.12, 0.45, 0.8, 1, 0.6);
+    add(new THREE.SphereGeometry(0.05, 10, 8), blackMat, 0.18 * s, 0.12, 0.51);
+    add(new THREE.SphereGeometry(0.09, 10, 8), pinkMat, 0.34 * s, -0.02, 0.42, 1, 1, 0.4); // ほっぺ
+    add(new THREE.SphereGeometry(0.18, 12, 10), bodyMat, 0.26 * s, -0.46, 0.12, 1, 0.6, 1.2); // 足
+    add(new THREE.SphereGeometry(0.15, 10, 8), bodyMat, 0.5 * s, -0.05, 0.05, 0.8, 1.1, 0.8); // 腕
+  }
+  add(new THREE.SphereGeometry(0.05, 8, 6), blackMat, 0, -0.02, 0.54, 1.3, 0.8, 0.6); // 鼻
+
+  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  return g;
+}
+
+const prizes = [];
+const _wp = new THREE.Vector3(), _wq = new THREE.Quaternion();
+
+function spawnPrize(x, z, y) {
+  const mesh = makePlushie(plushTypes[(Math.random() * plushTypes.length) | 0]);
+  scene.add(mesh);
+  const body = new CANNON.Body({ mass: 1, material: matPrize, shape: new CANNON.Sphere(PRIZE_R) });
+  body.position.set(x, y, z);
+  body.linearDamping = 0.25; body.angularDamping = 0.55;
+  body.collisionFilterGroup = G_PRIZE;
+  body.collisionFilterMask  = G_WORLD | G_PRIZE | G_FINGER;
+  world.addBody(body);
+  // すべりやすさ（個体差）: 重い／引っかかる子は落としやすい
+  prizes.push({ mesh, body, counted: false, slip: 1.0 + Math.random() * 0.7 });
+}
+
+function fillPrizes(n) {
+  // 重ならないグリッド状に配置 → 生成時に弾き飛んで壁をすり抜けるのを防ぐ
+  const cells = [];
+  for (let gx = -3.9; gx <= 3.95; gx += 1.3)
+    for (let gz = -3.9; gz <= 3.95; gz += 1.3)
+      if (!(gx < -2.3 && gz > 2.3)) cells.push([gx, gz]); // 落とし口は避ける
+  for (let i = cells.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = cells[i]; cells[i] = cells[j]; cells[j] = t; }
+  // 既存の山より上から落とす（既存の景品の中に湧かない）
+  let baseY = 0.9;
+  for (const p of prizes) baseY = Math.max(baseY, p.body.position.y + 1.4);
+  for (let i = 0; i < n; i++) {
+    const c = cells[i % cells.length];
+    const layer = Math.floor(i / cells.length);
+    spawnPrize(c[0] + (Math.random() - 0.5) * 0.12, c[1] + (Math.random() - 0.5) * 0.12, baseY + layer * 1.4);
+  }
+}
+fillPrizes(40);
+
+// すり抜け防止：毎サブステップで速度を制限し、ガラスの外へ出た景品は内側へ戻す
+world.addEventListener('postStep', () => {
+  for (const p of prizes) {
+    const v = p.body.velocity, s = v.length();
+    if (s > MAXV) v.scale(MAXV / s, v);
+    // 位置クランプ（落とし口に落下中の景品は除外）
+    const q = p.body.position;
+    const inHole = q.x >= -5 && q.x <= -2.5 && q.z >= 2.5 && q.z <= 5;
+    if (!inHole && q.y > -0.5) {
+      if (q.x >  4.4) { q.x =  4.4; if (v.x > 0) v.x = 0; }
+      if (q.x < -4.4) { q.x = -4.4; if (v.x < 0) v.x = 0; }
+      if (q.z >  4.4) { q.z =  4.4; if (v.z > 0) v.z = 0; }
+      if (q.z < -4.4) { q.z = -4.4; if (v.z < 0) v.z = 0; }
+    }
+  }
+});
+
+function removePrize(i) {
+  const p = prizes[i];
+  scene.remove(p.mesh);
+  p.mesh.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+  world.removeBody(p.body);
+  prizes.splice(i, 1);
+}
+
+// ===== 演出（紙吹雪 + 画面フラッシュ） =====
+const confetti = [];
+const confColors = [0xff5d5d, 0xffd23f, 0x6cf06c, 0x4fd6ff, 0x7a7dff, 0xff7ad6, 0xffffff];
+function burstConfetti(x, y, z, n = 40, spread = 6) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.03),
+      new THREE.MeshBasicMaterial({ color: confColors[(Math.random()*confColors.length)|0], transparent: true }));
+    m.position.set(x, y, z);
+    scene.add(m);
+    confetti.push({ mesh: m,
+      vel: new THREE.Vector3((Math.random()-0.5)*spread, 4 + Math.random()*5, (Math.random()-0.5)*spread),
+      spin: (Math.random()-0.5)*12, life: 1.4 + Math.random()*0.6 });
+  }
+}
+function updateConfetti(dt) {
+  for (let i = confetti.length - 1; i >= 0; i--) {
+    const c = confetti[i];
+    c.vel.y -= 13 * dt;
+    c.mesh.position.addScaledVector(c.vel, dt);
+    c.mesh.rotation.x += c.spin * dt; c.mesh.rotation.z += c.spin * dt;
+    c.life -= dt;
+    c.mesh.material.opacity = Math.min(1, c.life);
+    if (c.life <= 0) { scene.remove(c.mesh); c.mesh.geometry.dispose(); c.mesh.material.dispose(); confetti.splice(i, 1); }
+  }
+}
+const flashEl = document.getElementById('flash');
+function flashScreen() {
+  flashEl.style.transition = 'none';
+  flashEl.style.opacity = '0.5';
+  requestAnimationFrame(() => { flashEl.style.transition = 'opacity .5s'; flashEl.style.opacity = '0'; });
+}
+
+// ===== ゲーム状態 =====
+let gameState = 'aimX'; // aimX, aimZ, waiting, dropping, grabbing, lifting, returning, releasing
+const clawPos = { x: HOME.x, y: TOP_Y, z: HOME.z };
+let fingerAngle = OPEN;
+let grabbedPrize = null, grabConstraint = null;
+let aimedPrize = null, aimedDist = 1e9, gripStrength = 0.5;
+let waitTimer = 0;
+let closeTarget = CLOSED, grabTried = false;
+let score = 0;
+const hold = { right: false, back: false };
+
+function startDrop() {
+  if (gameState !== 'aimZ') return;
+  // 落とす瞬間に、アーム真下にある景品を「狙い」として記録しておく
+  aimedPrize = null; aimedDist = 1e9;
+  for (const p of prizes) {
+    const dx = p.body.position.x - clawPos.x, dz = p.body.position.z - clawPos.z;
+    const d = Math.hypot(dx, dz);
+    if (p.body.position.y < 1.9 && d < aimedDist) { aimedDist = d; aimedPrize = p; }
+  }
+  if (aimedDist > 1.35) aimedPrize = null; // 真下に景品がなければ空振り
+  gameState = 'waiting';   // 少し間をあけてから降下
+  waitTimer = WAIT_TIME;
+  updatePhaseUI();
+}
+
+function attemptGrab() {
+  let target = null, aimD = 1e9;
+  // 1) 狙った景品が近くに残っていれば最優先で確保（降下中に弾かれても拾える）
+  if (aimedPrize && prizes.includes(aimedPrize)) {
+    const dx = aimedPrize.body.position.x - clawPos.x, dz = aimedPrize.body.position.z - clawPos.z;
+    if (aimedPrize.body.position.y < 2.8 && Math.hypot(dx, dz) < 1.9) { target = aimedPrize; aimD = aimedDist; }
+  }
+  // 2) なければ現在の最寄りを探す
+  if (!target) {
+    let bestD = 1e9;
+    for (const p of prizes) {
+      const dx = p.body.position.x - clawPos.x, dz = p.body.position.z - clawPos.z;
+      const d = Math.hypot(dx, dz);
+      if (p.body.position.y < 2.0 && d < GRAB_RADIUS && d < bestD) { bestD = d; target = p; }
+    }
+    aimD = bestD;
+  }
+  if (!target) return;
+  // 狙いの正確さで「つかめるか」が決まる
+  const prob = aimD < 0.45 ? 0.9 : aimD < 0.75 ? 0.66 : aimD < 1.05 ? 0.42 : 0.2;
+  if (Math.random() > prob) return;
+  // 狙いの正確さで「グリップの強さ」が決まる → 運搬中の落としやすさに影響
+  gripStrength = clamp(1 - aimD / 1.15, 0.12, 0.9);
+  // 爪の中央・カゴの中に収める（貫通せず安定して保持）
+  target.body.position.x += (clawPos.x - target.body.position.x) * 0.85;
+  target.body.position.z += (clawPos.z - target.body.position.z) * 0.85;
+  target.body.position.y = clawPos.y - 1.25;
+  target.body.velocity.setZero();
+  target.body.angularVelocity.setZero();
+  grabbedPrize = target;
+  target.body.collisionFilterMask = G_WORLD | G_PRIZE; // 爪との衝突を無効化
+  // グリップが弱いほど保持力も弱く、ぶつかると外れやすい
+  grabConstraint = new CANNON.LockConstraint(target.body, clawBody, { maxForce: 250 + gripStrength * 500 });
+  world.addConstraint(grabConstraint);
+  sndGrab();
+  burstConfetti(clawPos.x, BOTTOM_Y, clawPos.z, 10, 2.5);
+}
+
+function releaseGrab() {
+  if (grabConstraint) { world.removeConstraint(grabConstraint); grabConstraint = null; }
+  if (grabbedPrize) grabbedPrize.body.collisionFilterMask = G_WORLD | G_PRIZE | G_FINGER;
+  grabbedPrize = null;
+}
+
+// 運搬中に景品がすべり落ちる確率（毎秒）。グリップが弱い／重い子ほど高い
+function slipRate() {
+  return SLIP_K * (1 - gripStrength) * (grabbedPrize ? grabbedPrize.slip : 1);
+}
+function slipDrop() {
+  flashState('つるん…💦');
+  sndSlip();
+  releaseGrab();
+}
+
+function stepGame(dt) {
+  const hs = 4 * dt, vs = 4.5 * dt, fs = 2.4 * dt;
+  if (gameState === 'aimX' || gameState === 'aimZ') {
+    // 本体基準の絶対方向（視点に関係なく固定）：右＝+x / 奥＝-z
+    if (gameState === 'aimX' && hold.right) clawPos.x = clamp(clawPos.x + hs, -BOUND, BOUND);
+    if (gameState === 'aimZ' && hold.back)  clawPos.z = clamp(clawPos.z - hs, -BOUND, BOUND);
+    fingerAngle = approach(fingerAngle, OPEN, fs);
+  } else if (gameState === 'waiting') {
+    fingerAngle = approach(fingerAngle, OPEN, fs);
+    waitTimer -= dt;
+    if (waitTimer <= 0) { gameState = 'dropping'; sndDrop(); flashState('キャッチ！'); }
+  } else if (gameState === 'dropping') {
+    clawPos.y = approach(clawPos.y, BOTTOM_Y, vs);
+    if (clawPos.y <= BOTTOM_Y + 1e-3) {
+      grabTried = false;
+      // 真下に景品があれば、爪先が表面で止まる角度までしか閉じない（貫通防止）
+      closeTarget = (aimedPrize && prizes.includes(aimedPrize)) ? GRIP : CLOSED;
+      gameState = 'grabbing';
+    }
+  } else if (gameState === 'grabbing') {
+    fingerAngle = approach(fingerAngle, closeTarget, fs);
+    if (Math.abs(fingerAngle - closeTarget) < 0.01 && !grabTried) {
+      grabTried = true;
+      attemptGrab();
+      gameState = 'lifting'; sndLift();
+    }
+  } else if (gameState === 'lifting') {
+    if (grabbedPrize && Math.random() < slipRate() * dt) slipDrop();
+    clawPos.y = approach(clawPos.y, TOP_Y, vs);
+    if (clawPos.y >= TOP_Y - 1e-3) gameState = 'returning';
+  } else if (gameState === 'returning') {
+    if (grabbedPrize && Math.random() < slipRate() * dt) slipDrop();
+    clawPos.x = approach(clawPos.x, HOME.x, hs);
+    clawPos.z = approach(clawPos.z, HOME.z, hs);
+    if (Math.abs(clawPos.x - HOME.x) < 0.02 && Math.abs(clawPos.z - HOME.z) < 0.02) gameState = 'releasing';
+  } else if (gameState === 'releasing') {
+    fingerAngle = approach(fingerAngle, OPEN, fs);
+    if (Math.abs(fingerAngle - OPEN) < 0.02) {
+      releaseGrab();
+      gameState = 'aimX';
+      hold.right = false; hold.back = false;
+      updatePhaseUI();
+    }
+  }
+}
+
+function updateClawTransforms(dt) {
+  clawGroup.position.set(clawPos.x, clawPos.y, clawPos.z);
+  for (const p of fingerPivots) p.rotation.x = fingerAngle;
+  clawGroup.updateMatrixWorld(true);
+
+  clawBody.position.set(clawPos.x, clawPos.y, clawPos.z);
+  fingerMeshes.forEach((m, i) => {
+    m.getWorldPosition(_wp); m.getWorldQuaternion(_wq);
+    const fb = fingerBodies[i];
+    if (dt > 0) fb.body.velocity.set((_wp.x-fb.prev.x)/dt, (_wp.y-fb.prev.y)/dt, (_wp.z-fb.prev.z)/dt);
+    fb.body.position.set(_wp.x, _wp.y, _wp.z);
+    fb.body.quaternion.set(_wq.x, _wq.y, _wq.z, _wq.w);
+    fb.prev.copy(_wp);
+  });
+
+  // ブリッジ & ケーブル
+  bridge.position.x = clawPos.x;
+  const topY = 8.6;
+  const len = Math.max(0.02, topY - clawPos.y);
+  cable.position.set(clawPos.x, clawPos.y + len/2, clawPos.z);
+  cable.scale.y = len;
+}
+
+const inHole = (x, z) => x >= HOLE.x0 && x <= HOLE.x1 && z >= HOLE.z0 && z <= HOLE.z1;
+
+function resetPrize(p) {
+  let x, z, g = 0;
+  do { x = -4 + Math.random() * 8; z = -4 + Math.random() * 8; } while (x < -2.0 && z > 2.0 && ++g < 50);
+  p.body.position.set(x, 1.2, z);
+  p.body.velocity.setZero();
+  p.body.angularVelocity.setZero();
+}
+
+function checkScore() {
+  for (let i = prizes.length - 1; i >= 0; i--) {
+    const p = prizes[i];
+    if (p.counted || p === grabbedPrize) continue;
+    const pos = p.body.position;
+    if (pos.y < -1.2) {
+      if (inHole(pos.x, pos.z)) {
+        // ゲットゾーンから落ちた → 得点
+        p.counted = true;
+        score++;
+        scoreVal.textContent = score;
+        flashState('GET!! 🎉');
+        sndWin();
+        flashScreen();
+        burstConfetti(HOME.x, 1.6, HOME.z, 48, 7);
+        removePrize(i);
+      } else {
+        // ゾーン外で落下（脱走）→ カウントせずピットに戻す
+        resetPrize(p);
+      }
+    } else if (Math.abs(pos.x) > 5.4 || Math.abs(pos.z) > 5.4) {
+      // 壁の外に出てしまった → ピットに戻す
+      resetPrize(p);
+    }
+  }
+}
+
+// ===== UI =====
+const scoreVal = document.getElementById('scoreVal');
+const btnRightEl = document.getElementById('btnRight');
+const btnBackEl = document.getElementById('btnBack');
+const hintEl = document.getElementById('hint');
+const stateEl = document.getElementById('state');
+
+function updatePhaseUI() {
+  const aimX = gameState === 'aimX', aimZ = gameState === 'aimZ';
+  btnRightEl.classList.toggle('active', aimX);
+  btnBackEl.classList.toggle('active', aimZ);
+  btnRightEl.classList.toggle('dim', !aimX);
+  btnBackEl.classList.toggle('dim', !aimZ);
+  if (aimX) hintEl.textContent = '① 「▶右」で左右を決める（押している間だけ動く・離すと確定）';
+  else if (aimZ) hintEl.textContent = '② 「▲奥」で奥行きを決める → 離すと自動でキャッチ！';
+  else hintEl.textContent = 'キャッチ中…';
+}
+let stateTimer = 0;
+function flashState(t) {
+  stateEl.textContent = t; stateEl.style.opacity = 1; stateTimer = 0.9;
+  stateEl.style.animation = 'none';
+  void stateEl.offsetWidth; // reflow でアニメ再生をリセット
+  stateEl.style.animation = 'pop .4s ease-out';
+}
+
+document.getElementById('refill').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  ensureAudio(); sndClick();
+  if (prizes.length < 64) fillPrizes(16);
+});
+document.getElementById('audioBtn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  ensureAudio();
+  e.currentTarget.textContent = toggleMute() ? '🔇' : '🔊';
+});
+
+// 2ボタン操作：①右で位置決め → ②奥で位置決め → 離すと自動でキャッチ
+function pressRight() { ensureAudio(); if (gameState === 'aimX') { hold.right = true; sndMove(); } }
+function releaseRight() { hold.right = false; if (gameState === 'aimX') { gameState = 'aimZ'; updatePhaseUI(); } }
+function pressBack()  { ensureAudio(); if (gameState === 'aimZ') { hold.back = true; sndMove(); } }
+function releaseBack() { hold.back = false; if (gameState === 'aimZ') startDrop(); }
+
+function bindHold(el, press, release, isHeld) {
+  el.addEventListener('pointerdown', (e) => { e.preventDefault(); press(); });
+  el.addEventListener('pointerup',   (e) => { e.preventDefault(); release(); });
+  el.addEventListener('pointerleave', () => { if (isHeld()) release(); });
+  el.addEventListener('pointercancel', () => { if (isHeld()) release(); });
+}
+bindHold(btnRightEl, pressRight, releaseRight, () => hold.right);
+bindHold(btnBackEl,  pressBack,  releaseBack,  () => hold.back);
+
+// 視点プリセット
+const VIEWS = {
+  iso:   { p: [4, 10.5, 15], t: [0, 2.8, 0] },
+  front: { p: [0, 6, 17],    t: [0, 3, 0] },
+  side:  { p: [18, 6, 0.01], t: [0, 2.8, 0] },
+  top:   { p: [0, 19, 4],    t: [0, 1, 0] },
+};
+let camFrom, camTo, lookFrom, lookTo, camT = 1;
+function setView(name) {
+  const v = VIEWS[name]; if (!v) return;
+  camFrom = camera.position.clone();
+  camTo = new THREE.Vector3(...v.p);
+  lookFrom = controls.target.clone();
+  lookTo = new THREE.Vector3(...v.t);
+  camT = 0;
+  controls.enabled = false;
+  document.querySelectorAll('.vbtn').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
+}
+document.querySelectorAll('.vbtn').forEach((b) => {
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); sndClick(); setView(b.dataset.view); });
+});
+
+// キーボード操作：→ / D ＝「右」、↑ / W ＝「奥」（ボタンと同じ動き・押している間だけ進む）
+const RIGHT_KEYS = ['ArrowRight', 'KeyD'];
+const BACK_KEYS  = ['ArrowUp', 'KeyW'];
+addEventListener('keydown', (e) => {
+  if (RIGHT_KEYS.includes(e.code)) { e.preventDefault(); if (!e.repeat) pressRight(); }
+  else if (BACK_KEYS.includes(e.code)) { e.preventDefault(); if (!e.repeat) pressBack(); }
+});
+addEventListener('keyup', (e) => {
+  if (RIGHT_KEYS.includes(e.code)) { e.preventDefault(); releaseRight(); }
+  else if (BACK_KEYS.includes(e.code)) { e.preventDefault(); releaseBack(); }
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ===== メインループ =====
+let last = performance.now();
+function animate(now) {
+  requestAnimationFrame(animate);
+  let dt = (now - last) / 1000; last = now;
+  dt = Math.min(dt, 0.033);
+
+  stepGame(dt);
+  updateClawTransforms(dt);
+  world.step(1/60, dt, 5);
+
+  for (const p of prizes) {
+    const v = p.body.velocity, s = Math.hypot(v.x, v.y, v.z);
+    if (s > MAXV) { const k = MAXV / s; v.x *= k; v.y *= k; v.z *= k; }
+    p.mesh.position.copy(p.body.position); p.mesh.quaternion.copy(p.body.quaternion);
+  }
+
+  checkScore();
+  updateConfetti(dt);
+  if (stateTimer > 0) { stateTimer -= dt; if (stateTimer <= 0) stateEl.style.opacity = 0; }
+  holeRing.material.opacity = 0.45 + 0.25 * Math.sin(now * 0.004);
+  for (const n of neonMats) n.mat.color.copy(n.base).multiplyScalar(0.82 + 0.18 * (0.5 + 0.5 * Math.sin(now * 0.005 + n.ph)));
+  const _hr = now * 0.00012;
+  for (const L of rgbLeds) L.mat.color.setHSL((L.hue + _hr) % 1, 0.95, 0.6);
+
+  if (camT < 1) {
+    camT = Math.min(1, camT + dt * 2.2);
+    const e = camT < 0.5 ? 2 * camT * camT : 1 - Math.pow(-2 * camT + 2, 2) / 2; // easeInOut
+    camera.position.lerpVectors(camFrom, camTo, e);
+    controls.target.lerpVectors(lookFrom, lookTo, e);
+    camera.lookAt(controls.target);
+    if (camT >= 1) controls.enabled = true;
+  } else {
+    controls.update();
+  }
+  renderer.render(scene, camera);
+}
+document.getElementById('loading').remove();
+updatePhaseUI();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
