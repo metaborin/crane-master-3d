@@ -319,7 +319,7 @@ scene.add(holeRing);
 
 // ゲットゾーンの四角い枠（縁）— 内側2辺は物理ありで景品の転がり込みを防ぐ
 const zoneMat = new THREE.MeshStandardMaterial({ color: 0x36c6ff, emissive: 0x36c6ff, emissiveIntensity: 0.35, roughness: 0.4, metalness: 0.1 });
-const RW = 0.22, RH = 0.45; // 枠の厚み・高さ(half)
+const RW = 0.35, RH = 0.65; // 枠の厚み・高さ(half) — 高く厚くして乗り越え・すり抜けを防止
 box(-2.5,  RH, 3.75, RW, RH, 1.25 + RW, zoneMat, true,  false); // 内側 x=-2.5 の辺（物理）
 box(-3.75, RH, 2.5,  1.25 + RW, RH, RW, zoneMat, true,  false); // 内側 z=2.5 の辺（物理）
 box(-5,    RH, 3.75, RW, RH, 1.25 + RW, zoneMat, false, false); // 外側 x=-5 の辺（飾り）
@@ -681,6 +681,10 @@ world.addEventListener('postStep', () => {
       if (q.x < -4.4) { q.x = -4.4; if (v.x < 0) v.x = 0; }
       if (q.z >  4.4) { q.z =  4.4; if (v.z > 0) v.z = 0; }
       if (q.z < -4.4) { q.z = -4.4; if (v.z < 0) v.z = 0; }
+    } else if (inHole && q.y > 0.2 && q.y < 1.5) {
+      // 縁をすり抜けて入った景品をピット側へ戻す（中央から落下中の景品は対象外）
+      if (q.x > -3.2) { q.x = -1.9; if (v.x < 0) v.x = 0; }
+      else if (q.z < 3.2) { q.z = 1.9; if (v.z > 0) v.z = 0; }
     }
   }
 });
