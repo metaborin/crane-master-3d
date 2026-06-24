@@ -319,11 +319,15 @@ scene.add(holeRing);
 
 // ゲットゾーンの四角い枠（縁）— 内側2辺は物理ありで景品の転がり込みを防ぐ
 const zoneMat = new THREE.MeshStandardMaterial({ color: 0x36c6ff, emissive: 0x36c6ff, emissiveIntensity: 0.35, roughness: 0.4, metalness: 0.1 });
-const RW = 0.35, RH = 0.65; // 枠の厚み・高さ(half) — 高く厚くして乗り越え・すり抜けを防止
-box(-2.5,  RH, 3.75, RW, RH, 1.25 + RW, zoneMat, true,  false); // 内側 x=-2.5 の辺（物理）
-box(-3.75, RH, 2.5,  1.25 + RW, RH, RW, zoneMat, true,  false); // 内側 z=2.5 の辺（物理）
+const RW = 0.18, RH = 0.65; // 枠の厚み(薄め)・高さ(half)。貫通は壁の高さ＋速度制限で防止
+box(-2.5,  RH, 3.75, RW, RH, 1.25 + RW, zoneMat, false, false); // 内側 x=-2.5 の辺（見た目のみ）
+box(-3.75, RH, 2.5,  1.25 + RW, RH, RW, zoneMat, false, false); // 内側 z=2.5 の辺（見た目のみ）
 box(-5,    RH, 3.75, RW, RH, 1.25 + RW, zoneMat, false, false); // 外側 x=-5 の辺（飾り）
 box(-3.75, RH, 5,    1.25 + RW, RH, RW, zoneMat, false, false); // 外側 z=5 の辺（飾り）
+// 物理用の厚い見えない壁：見た目のピット側の面(-2.32 / 2.32)は縁と一致＝隙間なし。
+// そこから穴側へ約0.64の厚みを持たせ、押し込みでの貫通を防ぐ（見た目は薄いまま）
+physWall(-2.64, RH, 3.75, 0.32, RH, 1.25 + RW); // x=-2.5 の縁
+physWall(-3.75, RH, 2.64, 1.25 + RW, RH, 0.32); // z=2.5 の縁
 
 // ガラス壁（見た目+物理）— 厚めにして景品のすり抜けを防止（内面は±5）
 box( 5.3, 4.5, 0, 0.3, 4.5, 5.3, glassMat, false, false); // +x（見た目のみ）
@@ -681,10 +685,6 @@ world.addEventListener('postStep', () => {
       if (q.x < -4.4) { q.x = -4.4; if (v.x < 0) v.x = 0; }
       if (q.z >  4.4) { q.z =  4.4; if (v.z > 0) v.z = 0; }
       if (q.z < -4.4) { q.z = -4.4; if (v.z < 0) v.z = 0; }
-    } else if (inHole && q.y > 0.2 && q.y < 1.5) {
-      // 縁をすり抜けて入った景品をピット側へ戻す（中央から落下中の景品は対象外）
-      if (q.x > -3.2) { q.x = -1.9; if (v.x < 0) v.x = 0; }
-      else if (q.z < 3.2) { q.z = 1.9; if (v.z > 0) v.z = 0; }
     }
   }
 });
